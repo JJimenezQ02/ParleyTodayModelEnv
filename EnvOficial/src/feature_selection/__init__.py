@@ -1,0 +1,43 @@
+"""Pipeline de selección de features para clasificación en series temporales."""
+
+from src.feature_selection.feature_selection import (
+    DEFAULT_RANDOM_STATE,
+    PipelineConfig,
+    PipelineReport,
+    audit_categorical_coverage,
+    block_permutation_importance_bh,
+    diagnose_schema,
+    drop_sparse_features,
+    encode_target,
+    encode_target_with_map,
+    feature_stability_filter,
+    format_categorical_features,
+    mutual_information_prefilter,
+    preflight_permutation_power,
+    reanalyze_significance,
+    run_feature_selection_pipeline,
+    temporal_correlation_filter,
+    validate_selection,
+    walk_forward_selection_stability,
+)
+
+__all__ = [
+    "DEFAULT_RANDOM_STATE",
+    "PipelineConfig",
+    "PipelineReport",
+    "audit_categorical_coverage",
+    "block_permutation_importance_bh",
+    "diagnose_schema",
+    "drop_sparse_features",
+    "encode_target",
+    "encode_target_with_map",
+    "feature_stability_filter",
+    "format_categorical_features",
+    "mutual_information_prefilter",
+    "preflight_permutation_power",
+    "reanalyze_significance",
+    "run_feature_selection_pipeline",
+    "temporal_correlation_filter",
+    "validate_selection",
+    "walk_forward_selection_stability",
+]
