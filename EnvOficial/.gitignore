@@ -1,0 +1,10 @@
+.pkl
+.venv
+*.venv
+*/Data
+.env
+*.env
+__pycache__
+.pyc
+
+catboost_info/

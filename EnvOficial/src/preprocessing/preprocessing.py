@@ -3,48 +3,207 @@ import numpy as np
 from typing import List, Union, Dict, Tuple
 from pathlib import Path
 
+import typing 
+import numpy as np
+import pandas as pd
 
-def preprocessing_1x2_extra_time_filter(df: pd.DataFrame, data_path: Path, lower_threshold: int = -30, upper_threshold: int = 30) -> pd.DataFrame:
-    tms_match_stats = pd.read_parquet(data_path / 'team_match_stats.parquet')
-    # Inspect
-    # tms_match_stats.head()
-    # Inspect
-    # tms_match_stats['period'].value_counts()
-    # Filtering
-    matches_with_extra_time = (
-        tms_match_stats.loc[
-            (tms_match_stats["period"] == "ET1") &
-            (tms_match_stats["possession_percentage"].notna()),
-            "match_id"
-        ]
-        .unique()
+# Cada target se reconstruye como 1ª parte + 2ª parte. Los totales que trae la
+# fuente incluyen la prórroga, así que se descartan y se recalculan: la suma de
+# los parciales es, por construcción, el valor a 90 minutos.
+#
+# Formato: destino -> (columna 1ª parte, columna 2ª parte, total crudo a tirar)
+_TARGETS_A_RECALCULAR: Dict[str, Tuple[str, str, str]] = {
+    'home_total_corners': ('home_1st_corners', 'home_2nd_corners', 'home_total_corners'),
+    'away_total_corners': ('away_1st_corners', 'away_2nd_corners', 'away_total_corners'),
+    # El total crudo de tarjetas se llama `*_total_yellow_cards`, pero el target
+    # que consumen los notebooks es `*_total_cards`.
+    'home_total_cards': ('home_1st_yellow_cards', 'home_2nd_yellow_cards', 'home_total_yellow_cards'),
+    'away_total_cards': ('away_1st_yellow_cards', 'away_2nd_yellow_cards', 'away_total_yellow_cards'),
+    # Igual aquí: el total crudo duplica el "total" en el nombre.
+    'home_total_shots': ('home_1st_total_shots', 'home_2nd_total_shots', 'home_total_total_shots'),
+    'away_total_shots': ('away_1st_total_shots', 'away_2nd_total_shots', 'away_total_total_shots'),
+}
+
+
+def correccion_targets(df: pd.DataFrame) -> pd.DataFrame:
+    """Recalcula los targets de conteo a 90 minutos desde los parciales.
+
+    Es idempotente: siempre parte de las columnas de 1ª y 2ª parte, nunca del
+    total previo, así que reejecutarla sobre su propia salida no acumula.
+    """
+    df = df.copy()
+
+    # errors="ignore": los totales crudos pueden faltar si el parquet ya pasó
+    # por aquí, o si un notebook los tiró al cargar.
+    df = df.drop(
+        columns=[crudo for _, _, crudo in _TARGETS_A_RECALCULAR.values()],
+        errors="ignore",
     )
 
-    DOUBLE_LEG_CROSS_TOURNAMENT = [
-        "uefa-europa-league",
-        "uefa-champions-league",
-        "conference-league",
-        "copa_de_italia",
-        "copa-del-rey",
-        "carabao-cup",
-    ]
+    for destino, (primera, segunda, _) in _TARGETS_A_RECALCULAR.items():
+        df[destino] = df[primera] + df[segunda]
+
+    return df
 
 
-    df_filtered = df[
-        ~(
-            df["match_id"].isin(matches_with_extra_time) &
-            df["tournament"].isin(DOUBLE_LEG_CROSS_TOURNAMENT)
+def corregir_marcadores_90(matches: pd.DataFrame, data_path: Path) -> pd.DataFrame:
+
+    match_event_base = pd.read_parquet(data_path / "match_event_base.parquet")
+    shot_events = pd.read_parquet(data_path / "shot_events.parquet")
+    # Sólo goles
+    goals = match_event_base.loc[
+        match_event_base["event_type"] == "goal"
+    ].copy()
+
+    # Traer added_time
+    goals = goals.merge(
+        shot_events[["event_id", "added_time"]],
+        on="event_id",
+        how="left",
+    )
+
+    # Normalizar campos
+    goals["minute"] = pd.to_numeric(
+        goals["minute"], errors="coerce"
+    )
+
+    goals["added_time"] = (
+        pd.to_numeric(goals["added_time"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
+
+    # ==========================================================
+    # ELIMINAR GOLES DUPLICADOS
+    # (mismo partido, equipo, jugador, minuto y added_time)
+    # ==========================================================
+    goals = (
+        goals.sort_values("event_id")
+        .drop_duplicates(
+            subset=[
+                "match_id",
+                "team_id",
+                "player_id",
+                "minute",
+                "added_time",
+            ],
+            keep="first",
         )
+    )
+
+    # Minuto base (45, 90, 105, 120...)
+    minuto_base = goals["minute"] - goals["added_time"]
+
+    # Goles del tiempo reglamentario
+    goals["en_90"] = (
+        (goals["minute"] <= 90)
+        |
+        (
+            (goals["minute"] > 90)
+            &
+            (minuto_base == 90)
+        )
+    )
+
+    conteo = (
+        goals.groupby(
+            ["match_id", "team_id"],
+            dropna=False,
+        )
+        .agg(
+            g90=("en_90", "sum"),
+            ev_goals=("event_id", "count"),
+        )
+        .reset_index()
+    )
+
+    conteo["et_goals"] = (
+        conteo["ev_goals"] - conteo["g90"]
+    )
+
+    out = matches.copy()
+
+    # Descartar los resultados de una pasada anterior: si no, el merge de abajo
+    # los volvería a introducir con sufijos _x/_y y la función dejaría de ser
+    # reejecutable sobre su propia salida.
+    out = out.drop(
+        columns=[
+            "home_et_goals", "away_et_goals",
+            "home_score_90", "away_score_90",
+            "tiene_eventos", "eventos_cuadran",
+        ],
+        errors="ignore",
+    )
+
+    for lado in ("home", "away"):
+
+        out = out.merge(
+            conteo.rename(
+                columns={
+                    "team_id": f"{lado}_team_id",
+                    "g90": f"{lado}_g90",
+                    "ev_goals": f"{lado}_ev_goals",
+                    "et_goals": f"{lado}_et_goals",
+                }
+            ),
+            on=["match_id", f"{lado}_team_id"],
+            how="left",
+        )
+
+    cols = [
+        f"{l}_{c}"
+        for l in ("home", "away")
+        for c in ("g90", "ev_goals", "et_goals")
     ]
-    print(f"The Number of matches eliminated on this filter is: {df.shape[0] - df_filtered.shape[0]} & Total: {df_filtered.shape[0]}")
-    ### Winsor rest_days since some teams might have few apperances in the df
-    df_filtered["diff_days_rest"] = df_filtered["diff_days_rest"].clip(lower=lower_threshold, upper=upper_threshold)
 
-    return df_filtered
+    out[cols] = out[cols].fillna(0).astype(int)
+
+    # Diagnóstico
+    out["tiene_eventos"] = out["match_id"].isin(
+        match_event_base["match_id"].unique()
+    )
+
+    out["eventos_cuadran"] = (
+        (out["home_ev_goals"] == out["home_score"])
+        &
+        (out["away_ev_goals"] == out["away_score"])
+    )
+
+    # Si existen eventos, eliminar los goles de prórroga del marcador.
+    # Si no existen eventos, conservar el marcador original.
+    aplicar = out["tiene_eventos"]
+
+    out["home_score_90"] = np.where(
+        aplicar,
+        np.maximum(
+            out["home_score"] - out["home_et_goals"],
+            0,
+        ),
+        out["home_score"],
+    ).astype(int)
+
+    out["away_score_90"] = np.where(
+        aplicar,
+        np.maximum(
+            out["away_score"] - out["away_et_goals"],
+            0,
+        ),
+        out["away_score"],
+    ).astype(int)
+
+    return out.drop(
+        columns=[
+            "home_g90",
+            "away_g90",
+            "home_ev_goals",
+            "away_ev_goals",
+        ]
+    )
 
 
-def clean_dataset(df: pd.DataFrame) -> Tuple[list[str], list[str], list[str]]:
-    TARGET_COL = ['target_result']
+
+
+def clean_dataset(df: pd.DataFrame, target_col: List[str]) -> Tuple[list[str], list[str], list[str]]:
     EXCLUDE_LIST = [
         'generated_at', '1x2_confidence', '1x2_prediction', '1x2_prob_away', '1x2_prob_draw',
         '1x2_prob_home', 'away_aerial_duel_win_rate', 'away_cards_per_foul', 'away_corners_for', 'away_opponent_tackle_success_rate',
@@ -134,8 +293,9 @@ def clean_dataset(df: pd.DataFrame) -> Tuple[list[str], list[str], list[str]]:
         'away_1st_total_shots', 'away_2nd_total_shots', 'away_1st_shots_on_target', 'away_2nd_shots_on_target',
         'away_total_shots_on_target', 'away_1st_corners', 'away_2nd_corners', 'away_total_corners', 'total_yellow_cards', 'home_corners', 'away_corners',
         'home_shots_faced', 'home_shots_taken', 'away_shots_faced', 'away_shots_taken', 'home_total_shots', 'home_starters_count','diff_xga', 'diff_xg_padj',
-        'away_corners', 'home_corners', 'away_total_shots', 'home_total_shots'
-    ]
+        'away_corners', 'home_corners', 'away_total_shots', 'home_total_shots', 'home_score_90', 'away_score_90', 'diff_score', 'home_et_goals', 'away_et_goals',
+        'tiene_eventos', 'eventos_cuadran', 'home_total_yellow_cards', 'away_total_yellow_cards'
+    ] 
 
     EXCLUDE_COLS = []
     LEAKY_COLS = []
@@ -147,6 +307,8 @@ def clean_dataset(df: pd.DataFrame) -> Tuple[list[str], list[str], list[str]]:
     for col in LEAKY_LIST:
         if col in df.columns:
             LEAKY_COLS.append(col)
+    
+    LEAKY_LIST.extend(target_col)
 
     zone_cols = [col for col in df.columns if 'pct_goals_last_10' in col or 'pct_blocks' in col]
 
@@ -186,5 +348,5 @@ def clean_dataset(df: pd.DataFrame) -> Tuple[list[str], list[str], list[str]]:
         if col in df.columns:
             LEAKY_COLS.append(col)
 
-    return EXCLUDE_COLS, LEAKY_COLS, TARGET_COL
+    return EXCLUDE_COLS, LEAKY_COLS, target_col
 

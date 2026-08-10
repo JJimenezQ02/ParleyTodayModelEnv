@@ -1,7 +1,7 @@
-bootstrap: True
-n_estimators: 1069
-max_depth: 29
-min_samples_split: 14
-min_samples_leaf: 17
+bootstrap: true
+n_estimators: 975
+max_depth: 15
+min_samples_split: 25
+min_samples_leaf: 6
 max_features: 0.8
-max_samples: 0.5779245877927062
+max_samples: 0.9316140297844117

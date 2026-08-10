@@ -1,9 +1,11 @@
 """Utilidades compartidas: splits temporales, preparación de X/y y alineación
 de esquemas entre train / val / test."""
 
-import pandas as pd
+from pathlib import Path
+from typing import Dict, Final, List, Optional, Set, Tuple, Union
+
 import numpy as np
-from typing import Dict, Final, List, Optional, Set, Tuple
+import pandas as pd
 
 # Separadores para las cabeceras de los reportes por consola.
 SEP: Final[str] = "=" * 72
@@ -15,7 +17,7 @@ def split_data(
     df: pd.DataFrame,
     splits: Dict[str, List[str]],
     VALID_TOURNAMENTS: List[str] | None = None,
-):
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     df_copy = df.copy()
 
     if VALID_TOURNAMENTS is not None:
@@ -47,27 +49,65 @@ def clean_key_missing(df: pd.DataFrame, cols_to_check: List[str] = ['home_score'
 
     return df_clean
 
-def prepare_data_for_training(df: pd.DataFrame, EXCLUDE_COLS: List[str], leaky_cols: List[str], TARGET_COL: str):
+def prepare_data_for_training(
+    df: pd.DataFrame,
+    EXCLUDE_COLS: list[str],
+    leaky_cols: list[str],
+    TARGET_COL: Union[str, list[str]],
+    category_map: dict | None = None,
+):
 
     cols_to_drop = []
 
-    if leaky_cols != None:
+    if leaky_cols is not None:
         cols_to_drop.extend(leaky_cols)
-    if EXCLUDE_COLS != None:
+
+    if EXCLUDE_COLS is not None:
         cols_to_drop.extend(EXCLUDE_COLS)
 
-    if cols_to_drop != None:
+    if isinstance(TARGET_COL, str):
         cols_to_drop.append(TARGET_COL)
-        X = df.drop(cols_to_drop, axis=1)
-        y = df[TARGET_COL]
     else:
-        X = df.drop(TARGET_COL, axis=1)
-        y = df[TARGET_COL]
+        cols_to_drop.extend(TARGET_COL)
 
-    category = X.columns[X.nunique() < 6]
-    X[category] = X[category].astype('category')
+    # dict.fromkeys deduplica conservando el orden: una columna que aparezca
+    # en leaky_cols y en EXCLUDE_COLS a la vez no debe romper el drop.
+    cols_to_drop = list(dict.fromkeys(cols_to_drop))
 
-    return X, y
+    # errors="ignore" tolera columnas ausentes: las listas son compartidas
+    # entre targets (1x2, goals, corners) y no todos los datasets las traen.
+    faltantes = [c for c in cols_to_drop if c not in df.columns]
+    if faltantes:
+        print(f"  [PREP] {len(faltantes)} columnas a dropear no estan en el df "
+              f"y se ignoran: {faltantes}")
+
+    X = df.drop(columns=cols_to_drop, errors="ignore")
+    y = df[TARGET_COL]
+
+    # Detectar columnas categóricas
+    cat_cols = X.columns[X.nunique() < 20].tolist()
+
+    if "tournament" in X.columns and "tournament" not in cat_cols:
+        cat_cols.append("tournament")
+
+    if category_map is None:
+        # TRAIN: crear categorías
+        category_map = {}
+
+        for col in cat_cols:
+            X[col] = X[col].astype("category")
+            category_map[col] = X[col].cat.categories
+
+    else:
+        # VALID / TEST: reutilizar categorías del train
+        for col, cats in category_map.items():
+            if col in X.columns:
+                X[col] = pd.Categorical(
+                    X[col],
+                    categories=cats,
+                )
+
+    return X, y, category_map
 
 
 # ================================================================================
@@ -261,3 +301,63 @@ def print_header(title: str) -> None:
     print(f"\n{SEP}")
     print(f"  {title}")
     print(f"{SEP}")
+
+
+def save_feature_datasets(
+    df: pd.DataFrame,
+    feature_sets: Dict[str, List[str]],
+    output_dir: Union[str, Path],
+    metadata_cols: List[str],
+    datetime_col: str = "match_datetime_utc",
+) -> Dict[str, Path]:
+    """Guarda un parquet por conjunto de features, con las columnas de metadata.
+
+    Generaliza el guardado a N conjuntos: en vez de home/away fijos, la clave
+    de `feature_sets` nombra el archivo.
+
+    Parameters
+    ----------
+    df            : DataFrame con las features ya construidas.
+    feature_sets  : {nombre: lista de features}. Cada entrada -> un parquet.
+    output_dir    : carpeta destino.
+    metadata_cols : columnas de contexto que se incluyen en todos los archivos.
+    datetime_col  : columna de fecha a normalizar; se omite si no existe.
+
+    Returns
+    -------
+    {nombre: ruta escrita}
+    """
+    directory: Path = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    # Columnas duplicadas rompen el guardado a parquet.
+    frame: pd.DataFrame = df.loc[:, ~df.columns.duplicated()].copy()
+
+    if datetime_col in frame.columns and not pd.api.types.is_datetime64_any_dtype(
+        frame[datetime_col]
+    ):
+        frame[datetime_col] = pd.to_datetime(
+            frame[datetime_col], format="ISO8601", errors="coerce",
+        )
+
+    print(f"Shape antes de guardar: {frame.shape}")
+
+    written: Dict[str, Path] = {}
+
+    for name, features in feature_sets.items():
+        # dict.fromkeys preserva el orden y elimina repetidos.
+        requested: List[str] = list(dict.fromkeys(metadata_cols + list(features)))
+        available: List[str] = [c for c in requested if c in frame.columns]
+
+        missing: List[str] = [c for c in requested if c not in frame.columns]
+        if missing:
+            print(f"  [{name}] {len(missing)} columnas ausentes, excluidas: "
+                  f"{missing[:5]}{'...' if len(missing) > 5 else ''}")
+
+        path: Path = directory / f"{name}.parquet"
+        frame[available].to_parquet(path, index=False)
+        written[name] = path
+
+        print(f"  [{name}] guardado con {len(available)} columnas -> {path.name}")
+
+    return written
