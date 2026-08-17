@@ -1,12 +1,12 @@
 params:
   max_depth: 2
   min_samples_leaf: 49
-  n_estimators: 1200
-  learning_rate: 0.007620229768640432
-  col_sample: 0.6267395191821833
+  n_estimators: 1950
+  learning_rate: 0.005003882139056356
+  col_sample: 0.7451044774412743
 model: NGBoost
 family: poisson
 component: home
 metric: nll
-best_value: 1.6587980481790612
-tuning_date: '2026-08-09T17:02:59'
+best_value: 1.6590806845436326
+tuning_date: '2026-08-14T14:46:11'

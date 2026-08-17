@@ -11,6 +11,7 @@ configs, asi que otro target cae en su propia carpeta sin tocar codigo.
 from __future__ import annotations
 
 import pickle
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -52,6 +53,7 @@ def build_bundle(
     imputer: Optional[Any] = None,
     best_params: Optional[Dict[str, Any]] = None,
     metrics: Optional[Dict[str, Any]] = None,
+    category_map: Optional[Dict[str, Any]] = None,
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Empaqueta modelo + preprocesado + metadatos.
@@ -64,6 +66,12 @@ def build_bundle(
     imputer  : el fiteado en train. Obligatorio si el backend lo necesita;
         sin el, las predicciones futuras no reproducen el preprocesado.
     metrics  : metricas de evaluacion a dejar registradas (test_rps, test_nll...).
+    category_map : {columna: niveles} devuelto por `prepare_data_for_training`
+        sobre el TRAIN. En produccion `X` llega con las categoricas como string
+        crudo; sin este mapa el dtype no se puede reconstruir antes del imputer
+        y los codigos enteros dependerian del lote que se este prediciendo.
+        Se guardan solo las columnas que son features, como lista (un pd.Index
+        arrastraria dtype de pandas al pickle).
     """
     if imputer is None and needs_imputation(model_name):
         raise ValueError(
@@ -72,6 +80,13 @@ def build_bundle(
         )
 
     target_column: str = config.target.component(component).column
+
+    feature_set = set(features)
+    cat_map: Dict[str, List[Any]] = {
+        col: list(levels)
+        for col, levels in (category_map or {}).items()
+        if col in feature_set
+    }
 
     metadata: Dict[str, Any] = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -87,6 +102,7 @@ def build_bundle(
         "numeric_guards": config.numeric_guards,
         "best_params": dict(best_params) if best_params else {},
         "metrics": dict(metrics) if metrics else {},
+        "category_map": cat_map,
     }
     if extra:
         metadata.update(extra)
@@ -154,6 +170,30 @@ def predict_bundle(
 
     # Reindexado explicito: el orden de columnas importa para los backends.
     X_use: pd.DataFrame = X.loc[:, features]
+
+    # Las categoricas se reconstruyen ANTES del imputer: en produccion llegan
+    # como string crudo, y sin los niveles del train los codigos enteros que
+    # produce `encode_categoricals` dependerian de que valores traiga el lote.
+    cat_map: Dict[str, Any] = meta.get("category_map") or {}
+    if cat_map:
+        X_use = X_use.copy()
+        for col, levels in cat_map.items():
+            if col not in X_use.columns:
+                continue
+            # astype(CategoricalDtype) y no pd.Categorical(values, categories=):
+            # este ultimo esta deprecado en pandas 3.x con valores fuera de los
+            # niveles. Los no vistos caen a NaN -> codigo -1 aguas abajo.
+            unseen = set(X_use[col].dropna().unique()) - set(levels)
+            if unseen:
+                preview = sorted(str(u) for u in unseen)[:5]
+                warnings.warn(
+                    f"'{col}': {len(unseen)} nivel(es) no vistos en train "
+                    f"{preview} -> NaN (codigo -1). El modelo predecira igual, "
+                    f"pero sobre un valor que nunca aprendio.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            X_use[col] = X_use[col].astype(pd.CategoricalDtype(categories=levels))
 
     imputer = bundle.get("imputer")
     if imputer is not None:

@@ -1,8 +1,8 @@
 {
     "target": "cards",
     "components": [
-        "home_score_90",
-        "away_score_90"
+        "home_total_cards",
+        "away_total_cards"
     ],
     "thresholds": [
         0.5,
@@ -15,61 +15,61 @@
     ],
     "total_method": "convolution",
     "max_k": 7,
-    "saved_at": "2026-08-09T16:20:36",
+    "saved_at": "2026-08-14T15:36:13",
     "results": [
         {
             "model": "LightGBMLSS",
             "family": "poisson",
-            "nll_home": 1.6264358873818605,
-            "nll_away": 1.7101936879784476,
-            "rps_home": 0.7118224582552891,
-            "rps_away": 0.7709576710795233,
-            "ece_global": 0.012191553294786616
+            "nll_home": 1.628395025930749,
+            "nll_away": 1.7083076181383006,
+            "rps_home": 0.7128234890603893,
+            "rps_away": 0.7689771073654299,
+            "ece_global": 0.013657934226049046
         },
         {
             "model": "XGBoostLSS",
             "family": "poisson",
-            "nll_home": 1.6280961733731527,
-            "nll_away": 1.711419306156988,
-            "rps_home": 0.711819821046187,
-            "rps_away": 0.7714133381864365,
-            "ece_global": 0.011917468013538242
+            "nll_home": 1.628910747296727,
+            "nll_away": 1.709962568730742,
+            "rps_home": 0.7120288964184462,
+            "rps_away": 0.7697735630840071,
+            "ece_global": 0.012110395985862277
         },
         {
             "model": "NGBoost",
             "family": "poisson",
-            "nll_home": 1.6298113025055574,
-            "nll_away": 1.7131385981836809,
-            "rps_home": 0.7135538547642593,
-            "rps_away": 0.7729337421536121,
-            "ece_global": 0.012267178034945361
+            "nll_home": 1.630893833825201,
+            "nll_away": 1.712272196427828,
+            "rps_home": 0.7139935367849458,
+            "rps_away": 0.7719969854154654,
+            "ece_global": 0.012388613605273277
         },
         {
             "model": "NGBoost",
             "family": "negbin",
-            "nll_home": 1.6309106619508622,
-            "nll_away": 1.716089268098184,
-            "rps_home": 0.7141819456048213,
-            "rps_away": 0.7750542594575531,
-            "ece_global": 0.014503037724867116
+            "nll_home": 1.6319969015054936,
+            "nll_away": 1.7151789104230728,
+            "rps_home": 0.7146985932806365,
+            "rps_away": 0.7739653625280107,
+            "ece_global": 0.014120235903415
         },
         {
             "model": "XGBoostLSS",
             "family": "negbin",
-            "nll_home": 1.9791285131594825,
-            "nll_away": 1.9756983553868912,
-            "rps_home": 1.1386264084946893,
-            "rps_away": 1.0363060848574563,
-            "ece_global": 0.1711726956734673
+            "nll_home": 1.8955026469818939,
+            "nll_away": 2.2432188291494284,
+            "rps_home": 0.9918577677174341,
+            "rps_away": 1.4972529299772275,
+            "ece_global": 0.20525709457691693
         },
         {
             "model": "LightGBMLSS",
             "family": "negbin",
-            "nll_home": 2.3961738153061254,
-            "nll_away": 3.0166429850677106,
-            "rps_home": 1.9273965523045005,
-            "rps_away": 2.8953112028259542,
-            "ece_global": 0.3305191693156244
+            "nll_home": 3.0635405613116267,
+            "nll_away": 1.9794528362470258,
+            "rps_home": 3.037513125139176,
+            "rps_away": 1.0828835203661968,
+            "ece_global": 0.28232982347439733
         }
     ]
 }

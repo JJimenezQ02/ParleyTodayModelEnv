@@ -1,8 +1,8 @@
 {
     "target": "cards",
     "components": [
-        "home_score_90",
-        "away_score_90"
+        "home_total_cards",
+        "away_total_cards"
     ],
     "thresholds": [
         0.5,
@@ -15,7 +15,7 @@
     ],
     "total_method": "convolution",
     "max_k": 7,
-    "saved_at": "2026-08-09T14:24:47",
+    "saved_at": "2026-08-14T13:15:49",
     "models": {
         "home": "LightGBMLSS",
         "away": "LightGBMLSS"

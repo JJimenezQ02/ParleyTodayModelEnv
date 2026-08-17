@@ -15,9 +15,9 @@ target:
   # 'key' identifica el componente en los resultados; 'column' es la columna real.
   components:
     - key: home
-      column: home_score_90
+      column: home_total_cards
     - key: away
-      column: away_score_90
+      column: away_total_cards
 
   # Grilla Over/Under a evaluar en el ECE.
   # Para corners seria [8.5, 9.5, 10.5, 11.5]; para tarjetas [2.5, 3.5, 4.5].
@@ -156,7 +156,7 @@ feature_selection:
   significance_method: zscore # "parametric_bh" | "empirical_bh" | "zscore"
   parametric_dist: lognormal
   require_empirical_floor: true
-  zscore_threshold: 4.0
+  zscore_threshold: 3.5
   robustness_pass: false
 
   # STEP 4

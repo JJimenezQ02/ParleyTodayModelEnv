@@ -49,7 +49,6 @@ numeric_guards:
 
 # ── Hiperparametros base de cada modelo ───────────────────────────────────────
 models:
-
   LightGBMLSS:
     params:
       boosting: gbdt
@@ -106,14 +105,14 @@ negbin_kwargs:
 
 # ── Test de razon de verosimilitud (Poisson vs NegBin) ────────────────────────
 likelihood_ratio_test:
-  alpha: 0.01     # nivel de significancia (one-sided; alpha esta en el borde)
+  alpha: 0.01 # nivel de significancia (one-sided; alpha esta en el borde)
 
 # ── Tuning con Optuna ─────────────────────────────────────────────────────────
 tuning:
   n_trials: 100
   n_splits: 5
   direction: minimize
-  metric: nll            # metrica que Optuna minimiza
+  metric: nll # metrica que Optuna minimiza
   random_state: 67
   search_spaces_file: optuna_search_spaces.yaml
   pruner:
@@ -125,13 +124,13 @@ tuning:
 feature_selection:
   # Paralelismo: pocos threads por modelo y muchos modelos en paralelo rinde
   # 3-5x mas que all-threads con datasets de pocos miles de filas.
-  n_jobs: 0                       # 0 -> cores // threads_per_model
+  n_jobs: 0 # 0 -> cores // threads_per_model
   threads_per_model: 2
 
   # STEP 0
   sparsity_threshold: 0.95
   nan_threshold: 0.95
-  explicit_categorical: null      # declarar aca IDs/codigos numericos
+  explicit_categorical: null # declarar aca IDs/codigos numericos
 
   # STEP 0.5 — leakage. No desactivar en la primera corrida.
   run_leakage_audit: true
@@ -150,11 +149,11 @@ feature_selection:
   # STEP 3 — correr calibrate_runtime() antes de fijar shuffle_n_runs
   shuffle_n_runs: 300
   shuffle_alpha: 0.05
-  shuffle_block_size: 0           # 0 = auto por ACF del target
+  shuffle_block_size: 0 # 0 = auto por ACF del target
   shuffle_sample_size: 2000
   shuffle_boost_rounds: 150
   shuffle_n_real_seeds: 5
-  significance_method: zscore     # "parametric_bh" | "empirical_bh" | "zscore"
+  significance_method: zscore # "parametric_bh" | "empirical_bh" | "zscore"
   parametric_dist: lognormal
   require_empirical_floor: true
   zscore_threshold: 4.0

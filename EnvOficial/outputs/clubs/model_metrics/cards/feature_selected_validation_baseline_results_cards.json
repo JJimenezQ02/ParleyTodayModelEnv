@@ -1,8 +1,8 @@
 {
     "target": "cards",
     "components": [
-        "home_score_90",
-        "away_score_90"
+        "home_total_cards",
+        "away_total_cards"
     ],
     "thresholds": [
         0.5,
@@ -15,7 +15,7 @@
     ],
     "total_method": "convolution",
     "max_k": 7,
-    "saved_at": "2026-08-09T14:43:31",
+    "saved_at": "2026-08-14T13:48:18",
     "split": "2024/2025",
     "label": "LightGBMLSS Baseline",
     "results": {
@@ -23,65 +23,65 @@
             "label": "LightGBMLSS | poisson",
             "family": "poisson",
             "total_method": "convolution",
-            "ece_global": 0.012191553294786616,
-            "rps_home": 0.7118224582552891,
-            "rps_home_std": 0.5481904420287267,
-            "rps_home_p95": 1.764403907833773,
-            "nll_home": 1.6264358873818605,
-            "rps_away": 0.7709576710795233,
-            "rps_away_std": 0.5968576934823238,
-            "rps_away_p95": 1.9243686143754966,
-            "nll_away": 1.7101936879784476,
+            "ece_global": 0.013657934226049046,
+            "rps_home": 0.7128234890603893,
+            "rps_home_std": 0.553578335541422,
+            "rps_home_p95": 1.7821914425111107,
+            "nll_home": 1.628395025930749,
+            "rps_away": 0.7689771073654299,
+            "rps_away_std": 0.5983599308628496,
+            "rps_away_p95": 1.9028753071176507,
+            "nll_away": 1.7083076181383006,
             "n_samples": 2248
         },
         "ece_by_threshold": [
             {
                 "threshold": 0.5,
-                "p_pred_mean": 0.9759208586642381,
+                "p_pred_mean": 0.9757486382294626,
                 "p_real": 0.9497330960854092,
-                "abs_error": 0.02618776257882882,
+                "abs_error": 0.026015542144053327,
                 "n_over": 2135
             },
             {
                 "threshold": 1.5,
-                "p_pred_mean": 0.8937756587228131,
+                "p_pred_mean": 0.8928515605769085,
                 "p_real": 0.8754448398576512,
-                "abs_error": 0.018330818865161858,
+                "abs_error": 0.017406720719257307,
                 "n_over": 1968
             },
             {
                 "threshold": 2.5,
-                "p_pred_mean": 0.7451584711151652,
+                "p_pred_mean": 0.7429404094554966,
                 "p_real": 0.7428825622775801,
-                "abs_error": 0.0022759088375851055,
+                "abs_error": 5.78471779164591e-05,
                 "n_over": 1670
             },
             {
                 "threshold": 3.5,
-                "p_pred_mean": 0.5576360015732048,
+                "p_pred_mean": 0.5542143739609381,
                 "p_real": 0.5769572953736655,
-                "abs_error": 0.01932129380046066,
+                "abs_error": 0.02274292141272738,
                 "n_over": 1297
             },
             {
                 "threshold": 4.5,
-                "p_pred_mean": 0.3736807794520611,
+                "p_pred_mean": 0.3697718380191482,
                 "p_real": 0.3874555160142349,
-                "abs_error": 0.013774736562173817,
+                "abs_error": 0.01768367799508669,
                 "n_over": 871
             },
             {
                 "threshold": 5.5,
-                "p_pred_mean": 0.22490612391981615,
+                "p_pred_mean": 0.22134818267009837,
                 "p_real": 0.22508896797153025,
-                "abs_error": 0.0001828440517140928,
+                "abs_error": 0.003740785301431876,
                 "n_over": 506
             },
             {
                 "threshold": 6.5,
-                "p_pred_mean": 0.12195669092067428,
+                "p_pred_mean": 0.11926615445638596,
                 "p_real": 0.12722419928825623,
-                "abs_error": 0.005267508367581955,
+                "abs_error": 0.007958044831870278,
                 "n_over": 286
             }
         ]
